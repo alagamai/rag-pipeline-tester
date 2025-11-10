@@ -1,0 +1,85 @@
+import streamlit as st
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.embeddings import OllamaEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain_ollama import OllamaLLM
+import shutil
+import os
+
+import shutil, glob, os
+
+# Remove any previous Chroma database files
+for folder in ["db", "chroma", "index", ".chroma"]:
+    shutil.rmtree(folder, ignore_errors=True)
+
+for file in glob.glob("*.sqlite*"):
+    os.remove(file)
+
+st.set_page_config(page_title="RAG Demo", layout="wide")
+
+st.title("📘 Simple RAG Demo (Ollama + Streamlit)")
+
+uploaded_pdf = st.file_uploader("Upload a PDF", type=["pdf"])
+
+query = st.text_input("Ask a question based on the PDF")
+
+if uploaded_pdf:
+    # Save PDF to disk
+    pdf_path = "uploaded.pdf"
+    with open(pdf_path, "wb") as f:
+        f.write(uploaded_pdf.read())
+
+
+    # Load
+    loader = PyPDFLoader(pdf_path)
+    docs = loader.load()
+
+    # Chunk
+    splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+    chunks = splitter.split_documents(docs)
+
+    # Embeddings
+    emb = OllamaEmbeddings(model="mxbai-embed-large")
+
+    # Vector DB
+    db = Chroma.from_documents(chunks, emb)
+
+    # Retriever
+    retriever = db.as_retriever(search_kwargs={"k": 5})
+
+    # LLM
+    llm = OllamaLLM(model="llama3.1")
+
+    st.success("✅ PDF processed and indexed successfully!")
+
+    if query:
+        # Retrieve
+        results = retriever.invoke(query)
+
+        retrieved_text = "\n\n".join([doc.page_content for doc in results])
+
+        # Prompt
+        prompt = f"""
+You may ONLY use the text provided below.
+Do not invent or guess anything.
+
+TEXT START
+{retrieved_text}
+TEXT END
+
+Answer the following question:
+{query}
+"""
+
+        # LLM response
+        answer = llm.invoke(prompt)
+
+        st.subheader("✅ Answer")
+        st.write(answer)
+
+        with st.expander("🔍 Retrieved Chunks"):
+            st.write(retrieved_text)
+else:
+    st.info("Upload a PDF to begin.")
+
