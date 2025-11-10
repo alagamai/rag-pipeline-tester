@@ -6,9 +6,10 @@ This project includes both a console-based tester and a Streamlit UI that allows
 ---
 
 ## 📸 Screenshot
-Preview of the Streamlit RAG Testing Dashboard:
 
+RAG test set up 
 ![RAG Testing](screenshot/rag.png)
+Preview of the Streamlit RAG Testing Dashboard:
 ![RAG Testing Dashboard](screenshot/image1.png)
 
 ---
